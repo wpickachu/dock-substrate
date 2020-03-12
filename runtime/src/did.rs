@@ -205,14 +205,14 @@ impl KeyDetail {
 /// successful extrinsic and the chain requiring the extrinsic's nonce to be higher than current. This is
 /// little more involved as it involves a ">" check
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub struct KeyUpdate {
+pub struct KeyUpdate<BlockNumber> {
     did: Did,
     public_key: PublicKey,
     controller: Option<Did>,
     last_modified_in_block: BlockNumber,
 }
 
-impl KeyUpdate {
+impl KeyUpdate<BlockNumber> {
     /// Create new key update to update key of the `did`.
     /// Pass `controller` as None when not wishing to change the existing controller
     pub fn new(
@@ -234,12 +234,12 @@ impl KeyUpdate {
 /// `did` is the DID which is being removed.
 /// `last_modified_in_block` is the block number when this DID was last modified. The last modified time is present to prevent replay attack.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub struct DidRemoval {
+pub struct DidRemoval<BlockNumber> {
     did: Did,
     last_modified_in_block: BlockNumber,
 }
 
-impl DidRemoval {
+impl DidRemoval<BlockNumber> {
     /// Remove an existing DID `did`
     pub fn new(did: Did, last_modified_in_block: BlockNumber) -> Self {
         DidRemoval {
@@ -295,7 +295,11 @@ decl_module! {
         /// `signature` is the signature on the serialized `KeyUpdate`.
         /// The node while processing this extrinsic, should create the above serialized `KeyUpdate`
         /// using the stored data and try to verify the given signature with the stored key.
-        pub fn update_key(origin, key_update: KeyUpdate, signature: Signature) -> DispatchResult {
+        pub fn update_key(
+            origin,
+            key_update: KeyUpdate<T::BlockNumber>,
+            signature: Signature
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             // Not checking for signature size as its not stored
@@ -330,7 +334,11 @@ decl_module! {
         /// `signature` is the signature on the serialized `DIDRemoval`.
         /// The node while processing this extrinsic, should create the above serialized `DIDRemoval`
         /// using the stored data and try to verify the given signature with the stored key.
-        pub fn remove(origin, to_remove: DidRemoval, signature: Signature) -> DispatchResult {
+        pub fn remove(
+            origin,
+            to_remove: DidRemoval<T::BlockNumber>,
+            signature: Signature
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             // DID is registered and the removal is not being replayed
@@ -359,13 +367,13 @@ impl<T: Trait> Module<T> {
     /// with stored block number when the DID was last modified.
     pub fn ensure_registered_and_new(
         did: &Did,
-        last_modified_in_block: BlockNumber,
+        last_modified_in_block: T::BlockNumber,
     ) -> Result<KeyDetail, DispatchError> {
         let (current_key_detail, last_modified) = Self::get_key_detail(did)?;
 
         // replay protection: the command should contain the last block in which the DID was modified
         ensure!(
-            last_modified == T::BlockNumber::from(last_modified_in_block),
+            last_modified == last_modified_in_block,
             Error::<T>::DifferentBlockNumber
         );
 

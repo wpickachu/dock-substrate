@@ -69,18 +69,16 @@ pub type Hash = sp_core::H256;
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
 
+// Warning: Replay protection is implemented separately for each variant of this enum.
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
 /// not self describing.
 /// Never change the order of variants in this enum
 #[derive(Encode, Decode)]
-pub enum StateChange {
-    KeyUpdate(did::KeyUpdate),
-    DIDRemoval(did::DidRemoval),
-    Revoke {
-        command: revoke::Revoke,
-        last_updated: BlockNumber,
-    },
+pub enum StateChange<BlockNumber> {
+    KeyUpdate(did::KeyUpdate<BlockNumber>),
+    DIDRemoval(did::DidRemoval<BlockNumber>),
+    Revoke(revoke::Revoke<BlockNumber>),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

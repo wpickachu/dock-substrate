@@ -10,7 +10,8 @@ use system::ensure_signed;
 pub trait Trait: system::Trait + did::Trait {}
 
 type RegistryId = [u8; 32];
-type CredentialId = [u8; 32];
+type CredentialId = [u8; 32]; // XXX: Call this something more general. It will be useful to revoke
+                              // things that are not credentials.
 
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 pub enum Policy {
@@ -54,18 +55,18 @@ pub struct Registry {
 }
 
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-pub struct Revoke {
+pub struct Revoke<BlockNumber> {
     /// The registry on which to operate
-    rev_reg_id: RegistryId,
+    registry_id: RegistryId,
     /// Credential ids which will be revoked
-    cred_ids: BTreeSet<CredentialId>,
+    credential_ids: BTreeSet<CredentialId>,
+    /// For replay protection.
+    last_modified: BlockNumber,
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as TemplateModule {
-        // It's insane for Registry to impl Default.
         Registries: map RegistryId => Option<(Registry, T::BlockNumber)>;
-
         Revocations: map (RegistryId, CredentialId)
             => Option<T::BlockNumber>;
     }
@@ -83,30 +84,49 @@ decl_module! {
 
         pub fn revoke(
             origin,
-            to_revoke: (Revoke, super::BlockNumber),
+            registry_id: RegistryId,
+            credential_ids: BTreeSet<CredentialId>,
             sigs: BTreeMap<Did, did::Signature>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-            let (registry, blkn) =
-                Registries::<T>::get(&to_revoke.0.rev_reg_id).ok_or("registry does not exists")?;
+
+            // setup
+            let (registry, last_modified) =
+                Registries::<T>::get(&registry_id).ok_or("registry does not exists")?;
             let signers: Vec<_> = sigs.keys().collect();
+            let payload = super::StateChange::Revoke(Revoke {
+                registry_id,
+                credential_ids: credential_ids.clone(),
+                last_modified,
+            })
+            .encode();
+            let current_block = system::Module::<T>::block_number();
+
+            // check
             ensure!(
                 registry.policy.satisfied_by(&signers),
-                "signer set does not meet policy requirements"
+                "policy requirements not met"
             );
-            let (command, last_updated) = to_revoke;
-            let payload = super::StateChange::Revoke {
-                command,
-                last_updated,
-            }
-            .encode();
             for (signer, sig) in sigs {
                 ensure!(
                     did::Module::<T>::verify_sig_from_Did(&sig, &payload, &signer)?,
                     "invalid signature"
                 );
             }
-            todo!("replay protection")
+            for cred_id in &credential_ids {
+                ensure!(
+                    Revocations::<T>::get(&(registry_id, *cred_id)).is_none(),
+                    "credential already revoked"
+                );
+            }
+
+            // execute
+            for cred_id in &credential_ids {
+                Revocations::<T>::insert(&(registry_id, *cred_id), current_block);
+            }
+            Registries::<T>::insert(&registry_id, (registry, current_block));
+
+            Ok(())
         }
     }
 }
