@@ -309,6 +309,13 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExt
 pub type Executive =
     frame_executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
 
+impl StateChange {
+    fn hash() -> Vec<u8> {
+        let h = system::CheckGenesis::<Runtime>::new();
+        h.encode()
+    }
+}
+
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {

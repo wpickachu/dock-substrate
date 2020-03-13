@@ -8,6 +8,7 @@ use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::traits::Verify;
 use sp_std::convert::TryFrom;
 use sp_std::fmt;
+use sp_std::vec::Vec;
 use system::ensure_signed;
 
 /// Size of the Dock DID in bytes
@@ -258,6 +259,7 @@ decl_event!(
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
         Dids get(did): map Did => Option<(KeyDetail, T::BlockNumber)>;
+        Bh get(id): map Did => Vec<u8>;
     }
 }
 
@@ -389,6 +391,8 @@ impl<T: Trait> Module<T> {
             Error::<T>::DifferentBlockNumber
         );
 
+        let h = StateChange::hash();
+        Bh::insert(did, h);
         Ok(current_key_detail)
     }
 
@@ -773,6 +777,8 @@ mod tests {
             ));
 
             let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
+
+            println!("StateChange::hash {:?}", DIDModule::id(&did));
 
             // Maliciously update DID's key.
             // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
