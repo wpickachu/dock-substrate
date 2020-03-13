@@ -392,7 +392,10 @@ impl<T: Trait> Module<T> {
         );
 
         let h = StateChange::hash();
-        Bh::insert(did, h);
+        //let g = <Module<T>>::block_hash(T::BlockNumber::from(0));
+        let g = <system::Module<T>>::block_hash(T::BlockNumber::from(0));
+        let b = g.as_ref().clone();
+        Bh::insert(did, b.to_vec());
         Ok(current_key_detail)
     }
 
