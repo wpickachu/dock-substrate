@@ -11,7 +11,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 extern crate alloc;
 
 mod did;
-// mod revoke;
+mod revoke;
 mod template;
 
 use codec::{Decode, Encode};
@@ -82,9 +82,9 @@ pub type DigestItem = generic::DigestItem<Hash>;
 pub enum StateChange {
     KeyUpdate(did::KeyUpdate),
     DIDRemoval(did::DidRemoval),
-    // Revoke(revoke::Revoke),
-    // UnRevoke(revoke::UnRevoke),
-    // RemoveRegistry(revoke::RemoveRegistry),
+    Revoke(revoke::Revoke),
+    UnRevoke(revoke::UnRevoke),
+    RemoveRegistry(revoke::RemoveRegistry),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -263,8 +263,7 @@ impl did::Trait for Runtime {
     //type DIDByteSize = DIDByteSize;
 }
 
-/*
-impl revoke::Trait for Runtime {}*/
+impl revoke::Trait for Runtime {}
 
 construct_runtime!(
 	pub enum Runtime where
@@ -283,7 +282,7 @@ construct_runtime!(
 		// Used for the module template in `./template.rs`
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
 		DIDModule: did::{Module, Call, Storage, Event},
-		//Revoke: revoke::{Module, Call, Storage},
+		Revoke: revoke::{Module, Call, Storage}
 	}
 );
 
